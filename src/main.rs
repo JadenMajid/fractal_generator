@@ -17,7 +17,7 @@ fn main() -> eframe::Result {
     eframe::run_native(
         "Fractal Generator",
         options,
-        Box::new(|cc| Ok(Box::<MyApp>::default())),
+        Box::new(|_cc| Ok(Box::<MyApp>::default())),
     )
 }
 
