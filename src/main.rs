@@ -23,7 +23,8 @@ fn main() -> eframe::Result {
 
 #[derive(Debug, Copy, Clone)]
 struct MyApp {
-    rotation_speed: f32,
+    arm_rotation_speed: f32,
+    whole_rotation_speed: f32,
     increment_angle_add: bool,
     spin_fractal: bool,
     arms: i32,
@@ -35,18 +36,19 @@ impl Default for MyApp {
         Self {
             fractal_params: FractalParams {
                 origin: Pos2::new(WIDTH / 2.0, HEIGHT / 2.0),
-                depth: 30,
+                depth: 35,
                 angle: 0.0,
                 angle_add: PI / 3.0,
-                length: 300.0,
-                length_factor: 0.9,
-                line_thickness: 1.,
+                length: 220.0,
+                length_factor: 1.01,
+                line_thickness: 0.5,
                 color: [255., 0., 0.],
             },
             spin_fractal: true,
-            rotation_speed: 0.001,
+            arm_rotation_speed: 0.05,
+            whole_rotation_speed: 0.25,
             increment_angle_add: true,
-            arms: 1,
+            arms: 3,
         }
     }
 }
@@ -90,12 +92,16 @@ fn recurse(fractal_params: &mut FractalParams, painter: &Painter) {
 
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        let dt = ctx.input(|i|{i.stable_dt});
         if self.spin_fractal {
-            self.fractal_params.angle += self.rotation_speed;
+            self.fractal_params.angle += self.whole_rotation_speed*dt;
+            if self.fractal_params.angle >= 2. * PI {
+                self.fractal_params.angle = 0.0;
+            }
         }
 
         if self.increment_angle_add {
-            self.fractal_params.angle_add += self.rotation_speed;
+            self.fractal_params.angle_add += self.arm_rotation_speed*dt;
             if self.fractal_params.angle_add >= 2. * PI {
                 self.fractal_params.angle_add = 0.0;
             }
@@ -103,6 +109,7 @@ impl eframe::App for MyApp {
         self.fractal_params.origin = ctx.input(|i: &egui::InputState| i.screen_rect()).center();
 
         egui::CentralPanel::default().show(ctx, |ui| {
+            // Draw Arms
             let painter = ui.painter();
             for i in 1..self.arms + 1 {
                 let mut state = self.fractal_params.clone();
@@ -110,19 +117,32 @@ impl eframe::App for MyApp {
                 recurse(&mut state, painter);
             }
 
+            // This is all ui stuff, feel free to ignore
             ui.heading("Fractal Generator");
+            ui.add(
+                egui::Slider::new(
+                    &mut self.fractal_params.angle,
+                    RangeInclusive::new(0.0, 2.0 * PI),
+                )
+                .text("Fractal Angle"),
+            );
+            ui.add(
+                egui::Slider::new(&mut self.whole_rotation_speed, RangeInclusive::new(0., 5.))
+                    .text("Fractal Rotation Speed"),
+            );
             ui.add(
                 egui::Slider::new(
                     &mut self.fractal_params.angle_add,
                     RangeInclusive::new(0.0, 2.0 * PI),
                 )
-                .text("Angle_Add"),
+                .text("Arm Angle"),
             );
             ui.add(
-                egui::Slider::new(&mut self.rotation_speed, RangeInclusive::new(0.0, 0.01))
+                egui::Slider::new(&mut self.arm_rotation_speed, RangeInclusive::new(0., 5.))
                     .text("Arm Rotation Speed"),
             );
-            ui.add(egui::Slider::new(&mut self.arms, RangeInclusive::new(1, 10)).text("Arms"));
+
+            ui.add(egui::Slider::new(&mut self.arms, RangeInclusive::new(1, 20)).text("Arms"));
             ui.add(
                 egui::Slider::new(
                     &mut self.fractal_params.length,
@@ -145,7 +165,7 @@ impl eframe::App for MyApp {
                 .text("Arm Length Factor"),
             );
             ui.add(
-                egui::Slider::new(&mut self.fractal_params.depth, RangeInclusive::new(1, 100))
+                egui::Slider::new(&mut self.fractal_params.depth, RangeInclusive::new(1, 200))
                     .text("depth"),
             );
             ui.add(egui::Label::new("Fractal Color"));
@@ -153,12 +173,13 @@ impl eframe::App for MyApp {
             // ui.add(egui::Label::new("Background Color")); // Need to figure out later
             // egui::color_picker::color_edit_button_rgb(ui, &mut self.fractal_params.color);
 
-            ui.add(egui::Checkbox::new(&mut self.spin_fractal, "Spin Fractal"));
-            ui.add(egui::Checkbox::new(
-                &mut self.increment_angle_add,
-                "Advance Fractal",
-            ));
+            // ui.add(egui::Checkbox::new(&mut self.spin_fractal, "Spin Fractal"));
+            // ui.add(egui::Checkbox::new(
+            //     &mut self.increment_angle_add,
+            //     "Advance Fractal",
+            // ));
 
+            // force egui to render new frames even if no new input is detected
             ui.ctx().request_repaint();
         });
     }
