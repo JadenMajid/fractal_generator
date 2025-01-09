@@ -4,9 +4,14 @@
 use std::{f32::consts::PI, ops::RangeInclusive};
 
 use eframe::egui;
-use egui::{epaint::PathStroke, Painter, Pos2, Rgba};
+use egui::{epaint::PathStroke, Button, Painter, Pos2, Rgba, Ui};
+use singlelinefractal::SingleLineRotatedFractal;
+use treefractal::TreeFractal;
 const HEIGHT: f32 = 1000.0;
 const WIDTH: f32 = 2000.0;
+
+mod singlelinefractal;
+mod treefractal;
 
 fn main() -> eframe::Result {
     // env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
@@ -21,155 +26,76 @@ fn main() -> eframe::Result {
     )
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug)]
 struct MyApp {
-    arm_rotation_speed: f32,
-    whole_rotation_speed: f32,
-    increment_angle_add: bool,
-    spin_fractal: bool,
-    arms: i32,
-    fractal_params: FractalParams,
+    fractal_params:  Box<dyn DrawableFractal>
 }
 
 impl Default for MyApp {
     fn default() -> Self {
         Self {
-            fractal_params: FractalParams {
-                origin: Pos2::new(WIDTH / 2.0, HEIGHT / 2.0),
-                depth: 35,
-                angle: 0.0,
-                angle_add: PI / 3.0,
-                length: 220.0,
-                length_factor: 1.01,
-                line_thickness: 0.5,
-                color: [255., 0., 0.],
-            },
-            spin_fractal: true,
-            arm_rotation_speed: 0.05,
-            whole_rotation_speed: 0.25,
-            increment_angle_add: true,
-            arms: 3,
+            fractal_params: Box::new(STARTING_CONDS_TREE.clone()),
         }
     }
 }
 
-#[derive(Debug, Copy, Clone)]
-struct FractalParams {
-    origin: Pos2,
-    depth: u32,
-    angle: f32,
-    length: f32,
-    angle_add: f32,
-    length_factor: f32,
-    line_thickness: f32,
-    color: [f32; 3],
-}
+const STARTING_CONDS_SINGLE_LINE: SingleLineRotatedFractal = SingleLineRotatedFractal {
+    origin: Pos2::new(WIDTH / 2.0, HEIGHT / 2.0),
+    depth: 35,
+    angle: 0.0,
+    angle_add: PI / 3.0,
+    length: 220.0,
+    length_factor: 1.01,
+    line_thickness: 0.5,
+    color: [255., 0., 0.],
+    spin_fractal: true,
+    arm_rotation_speed: 0.05,
+    whole_rotation_speed: 0.25,
+    increment_angle_add: true,
+    arms: 3,
+};
 
-fn recurse(fractal_params: &mut FractalParams, painter: &Painter) {
-    if fractal_params.depth == 0 {
-        return;
-    }
-    let vec_to_add = egui::Vec2::angled(fractal_params.angle) * fractal_params.length;
-    let line_endpoint = fractal_params.origin + vec_to_add;
-    painter.line_segment(
-        [fractal_params.origin, line_endpoint],
-        PathStroke::new(
-            fractal_params.line_thickness,
-            Rgba::from_rgb(
-                fractal_params.color[0],
-                fractal_params.color[1],
-                fractal_params.color[2],
-            ),
-        ),
-    );
+const STARTING_CONDS_TREE: TreeFractal = TreeFractal {
+    origin: Pos2::new(WIDTH / 2.0, HEIGHT / 2.0),
+    depth: 8,
+    angle: PI*3./2.,
+    sweep_angle: PI / 3.0,
+    length: 190.0,
+    length_factor: 0.6,
+    line_thickness: 0.5,
+    color: [255., 255., 255.],
+    arms: 3,
+    centered: true,
+    sweep: true,
+    sweep_speed: 0.15
+};
 
-    fractal_params.origin = line_endpoint;
-    fractal_params.length *= fractal_params.length_factor;
-    fractal_params.depth -= 1;
-    fractal_params.angle += fractal_params.angle_add;
-    recurse(&mut fractal_params.clone(), painter);
+pub trait DrawableFractal: std::fmt::Debug{
+    fn update(&mut self, ctx: &egui::Context);
+    fn draw(&mut self, painter: &Painter);
+    fn recurse(&mut self, painter: &Painter);
+    fn draw_controls(&mut self, painter: &mut Ui);
 }
 
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        let dt = ctx.input(|i|{i.stable_dt});
-        if self.spin_fractal {
-            self.fractal_params.angle += self.whole_rotation_speed*dt;
-            if self.fractal_params.angle >= 2. * PI {
-                self.fractal_params.angle = 0.0;
-            }
-        }
-
-        if self.increment_angle_add {
-            self.fractal_params.angle_add += self.arm_rotation_speed*dt;
-            if self.fractal_params.angle_add >= 2. * PI {
-                self.fractal_params.angle_add = 0.0;
-            }
-        }
-        self.fractal_params.origin = ctx.input(|i: &egui::InputState| i.screen_rect()).center();
 
         egui::CentralPanel::default().show(ctx, |ui| {
-            // Draw Arms
-            let painter = ui.painter();
-            for i in 1..self.arms + 1 {
-                let mut state = self.fractal_params.clone();
-                state.angle += 2.0 * PI / (self.arms as f32) * (i as f32);
-                recurse(&mut state, painter);
+            // Change Mode
+            ui.heading("Fractal Generator");
+            if ui.button("Single Line Fractal").clicked {
+                self.fractal_params = Box::new(STARTING_CONDS_SINGLE_LINE.clone());
+            }
+            if ui.button("Tree Fractal").clicked {
+                self.fractal_params = Box::new(STARTING_CONDS_TREE.clone());
             }
 
-            // This is all ui stuff, feel free to ignore
-            ui.heading("Fractal Generator");
-            ui.add(
-                egui::Slider::new(
-                    &mut self.fractal_params.angle,
-                    RangeInclusive::new(0.0, 2.0 * PI),
-                )
-                .text("Fractal Angle"),
-            );
-            ui.add(
-                egui::Slider::new(&mut self.whole_rotation_speed, RangeInclusive::new(0., 5.))
-                    .text("Fractal Rotation Speed"),
-            );
-            ui.add(
-                egui::Slider::new(
-                    &mut self.fractal_params.angle_add,
-                    RangeInclusive::new(0.0, 2.0 * PI),
-                )
-                .text("Arm Angle"),
-            );
-            ui.add(
-                egui::Slider::new(&mut self.arm_rotation_speed, RangeInclusive::new(0., 5.))
-                    .text("Arm Rotation Speed"),
-            );
 
-            ui.add(egui::Slider::new(&mut self.arms, RangeInclusive::new(1, 20)).text("Arms"));
-            ui.add(
-                egui::Slider::new(
-                    &mut self.fractal_params.length,
-                    RangeInclusive::new(0.0, 400.0),
-                )
-                .text("Arm Length"),
-            );
-            ui.add(
-                egui::Slider::new(
-                    &mut self.fractal_params.line_thickness,
-                    RangeInclusive::new(0.0, 10.0),
-                )
-                .text("Arm Thickness"),
-            );
-            ui.add(
-                egui::Slider::new(
-                    &mut self.fractal_params.length_factor,
-                    RangeInclusive::new(0.000001, 3.),
-                )
-                .text("Arm Length Factor"),
-            );
-            ui.add(
-                egui::Slider::new(&mut self.fractal_params.depth, RangeInclusive::new(1, 200))
-                    .text("depth"),
-            );
-            ui.add(egui::Label::new("Fractal Color"));
-            egui::color_picker::color_edit_button_rgb(ui, &mut self.fractal_params.color);
+            let painter = ui.painter();
+            self.fractal_params.draw(painter);
+            self.fractal_params.draw_controls(ui);
+            self.fractal_params.update(ctx);
+
             // ui.add(egui::Label::new("Background Color")); // Need to figure out later
             // egui::color_picker::color_edit_button_rgb(ui, &mut self.fractal_params.color);
 
@@ -183,4 +109,27 @@ impl eframe::App for MyApp {
             ui.ctx().request_repaint();
         });
     }
+    
+    fn save(&mut self, _storage: &mut dyn eframe::Storage) {}
+    
+    fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {}
+    
+    fn auto_save_interval(&self) -> std::time::Duration {
+        std::time::Duration::from_secs(30)
+    }
+    
+    fn clear_color(&self, _visuals: &egui::Visuals) -> [f32; 4] {
+        // NOTE: a bright gray makes the shadows of the windows look weird.
+        // We use a bit of transparency so that if the user switches on the
+        // `transparent()` option they get immediate results.
+        egui::Color32::from_rgba_unmultiplied(12, 12, 12, 180).to_normalized_gamma_f32()
+    
+        // _visuals.window_fill() would also be a natural choice
+    }
+    
+    fn persist_egui_memory(&self) -> bool {
+        true
+    }
+    
+    fn raw_input_hook(&mut self, _ctx: &egui::Context, _raw_input: &mut egui::RawInput) {}
 }
