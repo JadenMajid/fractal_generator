@@ -1,7 +1,7 @@
 use std::{f32::consts::PI, ops::RangeInclusive};
 use egui::{epaint::PathStroke, Painter, Pos2, Rgba, Ui};
 
-use crate::DrawableFractal;
+use crate::Drawable;
 
 
 #[derive(Debug, Copy, Clone)]
@@ -12,16 +12,47 @@ pub(crate) struct SingleLineRotatedFractal {
     pub length: f32,
     pub angle_add: f32,
     pub length_factor: f32,
-    pub line_thickness: f32,
-    pub color: [f32; 3],
     pub arm_rotation_speed: f32,
     pub whole_rotation_speed: f32,
     pub increment_angle_add: bool,
     pub spin_fractal: bool,
-    pub arms: i32
+    pub arms: i32,
+    pub line_thickness: f32,
+    pub color: [f32; 3],
 }
 
-impl DrawableFractal for SingleLineRotatedFractal {
+impl SingleLineRotatedFractal{
+    fn recurse(&mut self, painter: &Painter) {
+        if self.depth == 0 {
+            return;
+        }
+        let vec_to_add = egui::Vec2::angled(self.angle) * self.length;
+        let line_endpoint = self.origin + vec_to_add;
+        painter.line_segment(
+            [self.origin, line_endpoint],
+            PathStroke::new(
+                self.line_thickness,
+                Rgba::from_rgb(
+                    self.color[0],
+                    self.color[1],
+                    self.color[2],
+                ),
+            ),
+        );
+
+        self.origin = line_endpoint;
+        self.length *= self.length_factor;
+        self.depth -= 1;
+        self.angle += self.angle_add;
+        self.recurse(painter);
+    }
+
+    fn draw_fractal(&mut self, painter: &Painter){
+        
+    }
+}
+
+impl Drawable for SingleLineRotatedFractal {
     fn update(&mut self, ctx: &egui::Context) {
         let dt = ctx.input(|i|{i.stable_dt});
         if self.spin_fractal {
@@ -50,30 +81,7 @@ impl DrawableFractal for SingleLineRotatedFractal {
         }
     }
 
-    fn recurse(&mut self, painter: &Painter) {
-        if self.depth == 0 {
-            return;
-        }
-        let vec_to_add = egui::Vec2::angled(self.angle) * self.length;
-        let line_endpoint = self.origin + vec_to_add;
-        painter.line_segment(
-            [self.origin, line_endpoint],
-            PathStroke::new(
-                self.line_thickness,
-                Rgba::from_rgb(
-                    self.color[0],
-                    self.color[1],
-                    self.color[2],
-                ),
-            ),
-        );
 
-        self.origin = line_endpoint;
-        self.length *= self.length_factor;
-        self.depth -= 1;
-        self.angle += self.angle_add;
-        self.recurse(painter);
-    }
 
     fn draw_controls(&mut self, ui: &mut Ui) {
             // This is all ui stuff, feel free to ignore

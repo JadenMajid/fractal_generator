@@ -1,7 +1,7 @@
 use std::{f32::consts::PI, ops::RangeInclusive, os::windows::ffi::EncodeWide};
-use egui::{epaint::PathStroke, Painter, Pos2, Rgba, Ui};
+use egui::{accesskit::Tree, epaint::PathStroke, Painter, Pos2, Rgba, Ui};
 
-use crate::DrawableFractal;
+use crate::Drawable;
 
 
 #[derive(Debug, Copy, Clone)]
@@ -20,37 +20,8 @@ pub(crate) struct TreeFractal {
     pub sweep_speed:f32,
 }
 
-impl DrawableFractal for TreeFractal {
-    fn update(&mut self, ctx: &egui::Context) {
-        let screenspace = ctx.input(|i: &egui::InputState| i.screen_rect());
-        self.origin = screenspace.center();
-        if !self.centered {
-            self.origin.y += screenspace.height()/4.
-        }
-        let dt = ctx.input(|i|{i.stable_dt});
-        if self.sweep {
-            self.sweep_angle += self.sweep_speed*dt;
-            self.sweep_angle %= 8. * PI;
-            if self.sweep_angle >= 8. * PI{
-                self.sweep_angle = 0.0;
-            } else if self.sweep_angle <= 0. {
-                self.sweep_angle = 8.*PI;
-            }
-        }
-    }
-        
-
-    fn draw(&mut self, painter: &Painter){
-        
-        for i in 0..self.arms{
-            let mut node = self.clone();
-            node.angle -= node.sweep_angle /2.;
-            node.angle += node.sweep_angle * (i as f32) / ((self.arms-1) as f32);
-
-            node.recurse(painter);
-        }
-    }
-
+impl TreeFractal {
+    
     fn recurse(&mut self, painter: &Painter) {
         if self.depth == 0 {
             return;
@@ -82,6 +53,39 @@ impl DrawableFractal for TreeFractal {
 
 
     }
+}
+
+impl Drawable for TreeFractal {
+    fn update(&mut self, ctx: &egui::Context) {
+        let screenspace = ctx.input(|i: &egui::InputState| i.screen_rect());
+        self.origin = screenspace.center();
+        if !self.centered {
+            self.origin.y += screenspace.height()/4.
+        }
+        let dt = ctx.input(|i|{i.stable_dt});
+        if self.sweep {
+            self.sweep_angle += self.sweep_speed*dt;
+            self.sweep_angle %= 8. * PI;
+            if self.sweep_angle >= 8. * PI{
+                self.sweep_angle = 0.0;
+            } else if self.sweep_angle <= 0. {
+                self.sweep_angle = 8.*PI;
+            }
+        }
+    }
+        
+
+    fn draw(&mut self, painter: &Painter){
+        
+        for i in 0..self.arms{
+            let mut node = self.clone();
+            node.angle -= node.sweep_angle /2.;
+            node.angle += node.sweep_angle * (i as f32) / ((self.arms-1) as f32);
+
+            node.recurse(painter);
+        }
+    }
+
 
     fn draw_controls(&mut self, ui: &mut Ui) {
             // This is all ui stuff, feel free to ignore
@@ -131,7 +135,7 @@ impl DrawableFractal for TreeFractal {
                 .text("Arm Length Factor"),
             );
             ui.add(
-                egui::Slider::new(&mut self.depth, RangeInclusive::new(1, 9))
+                egui::Slider::new(&mut self.depth, RangeInclusive::new(1, 10))
                     .text("depth"),
             );
             ui.checkbox(&mut self.centered, "centered?");

@@ -28,7 +28,7 @@ fn main() -> eframe::Result {
 
 #[derive(Debug)]
 struct MyApp {
-    fractal_params:  Box<dyn DrawableFractal>
+    fractal_params:  Box<dyn Drawable>
 }
 
 impl Default for MyApp {
@@ -70,10 +70,9 @@ const STARTING_CONDS_TREE: TreeFractal = TreeFractal {
     sweep_speed: 0.15
 };
 
-pub trait DrawableFractal: std::fmt::Debug{
+pub trait Drawable: std::fmt::Debug{
     fn update(&mut self, ctx: &egui::Context);
     fn draw(&mut self, painter: &Painter);
-    fn recurse(&mut self, painter: &Painter);
     fn draw_controls(&mut self, painter: &mut Ui);
 }
 
@@ -109,27 +108,4 @@ impl eframe::App for MyApp {
             ui.ctx().request_repaint();
         });
     }
-    
-    fn save(&mut self, _storage: &mut dyn eframe::Storage) {}
-    
-    fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {}
-    
-    fn auto_save_interval(&self) -> std::time::Duration {
-        std::time::Duration::from_secs(30)
-    }
-    
-    fn clear_color(&self, _visuals: &egui::Visuals) -> [f32; 4] {
-        // NOTE: a bright gray makes the shadows of the windows look weird.
-        // We use a bit of transparency so that if the user switches on the
-        // `transparent()` option they get immediate results.
-        egui::Color32::from_rgba_unmultiplied(12, 12, 12, 180).to_normalized_gamma_f32()
-    
-        // _visuals.window_fill() would also be a natural choice
-    }
-    
-    fn persist_egui_memory(&self) -> bool {
-        true
-    }
-    
-    fn raw_input_hook(&mut self, _ctx: &egui::Context, _raw_input: &mut egui::RawInput) {}
 }
