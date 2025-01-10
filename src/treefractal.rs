@@ -142,5 +142,7 @@ impl Drawable for TreeFractal {
             ui.checkbox(&mut self.sweep, "Sweep?");
             ui.add(egui::Label::new("Fractal Color"));
             egui::color_picker::color_edit_button_rgb(ui, &mut self.color);
+                        // force egui to render new frames even if no new input is detected
+                        ui.ctx().request_repaint();
     }
 }

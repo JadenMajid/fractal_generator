@@ -12,7 +12,7 @@ const WIDTH: f32 = 2000.0;
 
 mod singlelinefractal;
 mod treefractal;
-
+mod mandelbrot;
 fn main() -> eframe::Result {
     // env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
     let options = eframe::NativeOptions {
@@ -103,9 +103,6 @@ impl eframe::App for MyApp {
             //     &mut self.increment_angle_add,
             //     "Advance Fractal",
             // ));
-
-            // force egui to render new frames even if no new input is detected
-            ui.ctx().request_repaint();
         });
     }
 }
