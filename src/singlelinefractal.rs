@@ -99,7 +99,7 @@ impl Drawable for SingleLineRotatedFractal {
             state.angle += 2.0 * PI / (self.arms as f32) * (i as f32);
             state.get_shapes(self, &mut shapes)
         }
-        painter.add(shapes);
+        painter.extend(shapes);
     }
 
 
