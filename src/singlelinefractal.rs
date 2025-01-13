@@ -1,67 +1,85 @@
 use std::{f32::consts::PI, ops::RangeInclusive};
-use egui::{epaint::PathStroke, Painter, Pos2, Rgba, Ui};
+use egui::{epaint::PathStroke, Painter, Pos2, Rgba, Shape, Stroke, Ui};
 
 use crate::Drawable;
 
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Clone)]
 pub(crate) struct SingleLineRotatedFractal {
-    pub origin: Pos2,
-    pub depth: u32,
-    pub angle: f32,
-    pub length: f32,
+    pub node: SingleLineRotatedFractalNode,
     pub angle_add: f32,
     pub length_factor: f32,
     pub arm_rotation_speed: f32,
     pub whole_rotation_speed: f32,
     pub increment_angle_add: bool,
     pub spin_fractal: bool,
-    pub arms: i32,
-    pub line_thickness: f32,
-    pub color: [f32; 3],
+    pub arms: u32,
+    pub stroke: Stroke
 }
 
-impl SingleLineRotatedFractal{
-    fn recurse(&mut self, painter: &Painter) {
-        if self.depth == 0 {
-            return;
-        }
+#[derive(Debug, Copy, Clone)]
+pub struct SingleLineRotatedFractalNode {
+    pub origin: Pos2,
+    pub depth: u32,
+    pub angle: f32,
+    pub length: f32,
+}
+
+impl SingleLineRotatedFractalNode {
+    fn get_shapes(&mut self, params: &mut SingleLineRotatedFractal, shapes: &mut Vec<Shape>){
         let vec_to_add = egui::Vec2::angled(self.angle) * self.length;
         let line_endpoint = self.origin + vec_to_add;
-        painter.line_segment(
-            [self.origin, line_endpoint],
-            PathStroke::new(
-                self.line_thickness,
-                Rgba::from_rgb(
-                    self.color[0],
-                    self.color[1],
-                    self.color[2],
-                ),
-            ),
-        );
 
+        shapes.push(Shape::LineSegment { points:[self.origin, line_endpoint], stroke: params.stroke.clone().into() });
         self.origin = line_endpoint;
-        self.length *= self.length_factor;
+        self.length *= params.length_factor;
         self.depth -= 1;
-        self.angle += self.angle_add;
-        self.recurse(painter);
-    }
-
-    fn draw_fractal(&mut self, painter: &Painter){
-        
+        self.angle += params.angle_add;
+        if self.depth <= 0 {
+            return
+        }
+        return self.get_shapes(params, shapes);
     }
 }
+
+// impl SingleLineRotatedFractal{
+//     fn recurse(&mut self, painter: &Painter) {
+//         if self.depth == 0 {
+//             return;
+//         }
+//         let vec_to_add = egui::Vec2::angled(self.angle) * self.length;
+//         let line_endpoint = self.origin + vec_to_add;
+//         painter.line_segment(
+//             [self.origin, line_endpoint],
+//             PathStroke::new(
+//                 self.line_thickness,
+//                 Rgba::from_rgb(
+//                     self.color[0],
+//                     self.color[1],
+//                     self.color[2],
+//                 ),
+//             ),
+//         );
+
+
+//         self.origin = line_endpoint;
+//         self.length *= self.length_factor;
+//         self.depth -= 1;
+//         self.angle += self.angle_add;
+//         self.recurse(painter);
+//     }
+// }
 
 impl Drawable for SingleLineRotatedFractal {
     fn update(&mut self, ctx: &egui::Context) {
         let dt = ctx.input(|i|{i.stable_dt});
         if self.spin_fractal {
-            self.angle += self.whole_rotation_speed*dt;
-            self.angle %= 2. * PI;
-            if self.angle >= 2. * PI{
-                self.angle = 0.0;
-            } else if self.angle <= 0. {
-                self.angle = 2.*PI;
+            self.node.angle += self.whole_rotation_speed*dt;
+            self.node.angle %= 2. * PI;
+            if self.node.angle >= 2. * PI{
+                self.node.angle = 0.0;
+            } else if self.node.angle <= 0. {
+                self.node.angle = 2.*PI;
             }
         }
 
@@ -69,16 +87,19 @@ impl Drawable for SingleLineRotatedFractal {
             self.angle_add += self.arm_rotation_speed*dt;
             self.angle_add %= 2. * PI;
         }
-        self.origin = ctx.input(|i: &egui::InputState| i.screen_rect()).center();
+        self.node.origin = ctx.input(|i: &egui::InputState| i.screen_rect()).center();
     }
 
     fn draw(&mut self, painter: &Painter){
-        
+        let mut shapes = Vec::new();
+        // Pre reserve space for total arms, 
+        shapes.reserve(((self.node.depth*self.arms)).try_into().unwrap_or(0));
         for i in 1..self.arms + 1 {
-            let mut state = self.clone();
+            let mut state = self.node.clone();
             state.angle += 2.0 * PI / (self.arms as f32) * (i as f32);
-            state.recurse(painter);
+            state.get_shapes(self, &mut shapes)
         }
+        painter.add(shapes);
     }
 
 
@@ -87,7 +108,7 @@ impl Drawable for SingleLineRotatedFractal {
             // This is all ui stuff, feel free to ignore
             ui.add(
                 egui::Slider::new(
-                    &mut self.angle,
+                    &mut self.node.angle,
                     RangeInclusive::new(0.0, 2.0 * PI),
                 )
                 .text("Fractal Angle"),
@@ -111,14 +132,14 @@ impl Drawable for SingleLineRotatedFractal {
             ui.add(egui::Slider::new(&mut self.arms, RangeInclusive::new(1, 20)).text("Arms"));
             ui.add(
                 egui::Slider::new(
-                    &mut self.length,
+                    &mut self.node.length,
                     RangeInclusive::new(0.0, 800.0),
                 )
                 .text("Arm Length"),
             );
             ui.add(
                 egui::Slider::new(
-                    &mut self.line_thickness,
+                    &mut self.stroke.width,
                     RangeInclusive::new(0.0, 10.0),
                 )
                 .text("Arm Thickness"),
@@ -131,10 +152,10 @@ impl Drawable for SingleLineRotatedFractal {
                 .text("Arm Length Factor"),
             );
             ui.add(
-                egui::Slider::new(&mut self.depth, RangeInclusive::new(1, 200))
+                egui::Slider::new(&mut self.node.depth, RangeInclusive::new(1, 200))
                     .text("depth"),
             );
             ui.add(egui::Label::new("Fractal Color"));
-            egui::color_picker::color_edit_button_rgb(ui, &mut self.color);
+            egui::color_picker::color_edit_button_srgba(ui, &mut self.stroke.color, egui::color_picker::Alpha::BlendOrAdditive);
     }
 }
