@@ -20,6 +20,10 @@ pub(crate) struct TreeFractal {
     pub sweep_speed:f32,
 }
 
+struct TreeFractalNode {
+    
+}
+
 impl TreeFractal {
     
     fn recurse(&mut self, painter: &Painter) {

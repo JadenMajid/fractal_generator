@@ -4,8 +4,8 @@
 use std::{f32::consts::PI, ops::RangeInclusive};
 
 use eframe::egui;
-use egui::{epaint::PathStroke, Button, Painter, Pos2, Rgba, Ui};
-use singlelinefractal::SingleLineRotatedFractal;
+use egui::{epaint::PathStroke, Button, Color32, Painter, Pos2, Rgba, Stroke, Ui};
+use singlelinefractal::{SingleLineRotatedFractal, SingleLineRotatedFractalNode};
 use treefractal::TreeFractal;
 const HEIGHT: f32 = 1000.0;
 const WIDTH: f32 = 2000.0;
@@ -40,19 +40,20 @@ impl Default for MyApp {
 }
 
 const STARTING_CONDS_SINGLE_LINE: SingleLineRotatedFractal = SingleLineRotatedFractal {
-    origin: Pos2::new(WIDTH / 2.0, HEIGHT / 2.0),
-    depth: 35,
-    angle: 0.0,
+    node: SingleLineRotatedFractalNode {
+        origin: Pos2::new(WIDTH / 2.0, HEIGHT / 2.0),
+        depth: 35,
+        angle: 0.0,
+        length: 220.0,
+    },
     angle_add: PI / 3.0,
-    length: 220.0,
     length_factor: 1.01,
-    line_thickness: 0.5,
-    color: [255., 0., 0.],
     spin_fractal: true,
     arm_rotation_speed: 0.05,
     whole_rotation_speed: 0.25,
     increment_angle_add: true,
     arms: 3,
+    stroke: Stroke { width: 0.5, color: Color32::RED }
 };
 
 const STARTING_CONDS_TREE: TreeFractal = TreeFractal {
